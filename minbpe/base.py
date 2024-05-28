@@ -34,9 +34,11 @@ def merge(ids, pair, idx):
         # if not at the very last position AND the pair matches, replace it
         if ids[i] == pair[0] and i < len(ids) - 1 and ids[i+1] == pair[1]:
             newids.append(idx)
+            # 若可以替换，则i+=2
             i += 2
         else:
             newids.append(ids[i])
+            # 若不可以替换，则i+=1. 也就是说 aaabdaaabac 替换 aa 为 X, 是 XabdXabac，而不是 XabdaXbac
             i += 1
     return newids
 

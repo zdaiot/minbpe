@@ -27,6 +27,7 @@ class BasicTokenizer(Tokenizer):
 
         # iteratively merge the most common pairs to create new tokens
         merges = {} # (int, int) -> int
+        # eg: bytes(2)生成一个长度为2的bytes对象，所有元素都是0，而bytes([2])生成一个包含整数2的bytes对象。
         vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
         for i in range(num_merges):
             # count up the number of times every consecutive pair appears
@@ -39,6 +40,7 @@ class BasicTokenizer(Tokenizer):
             ids = merge(ids, pair, idx)
             # save the merge
             merges[pair] = idx
+            # 两个bytes类型的变量可以使用加号（+）进行连接。这会返回一个新的bytes对象，该对象是两个原始bytes对象的连接。这类似于字符串的连接
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
             # prints
             if verbose:
@@ -61,6 +63,7 @@ class BasicTokenizer(Tokenizer):
         while len(ids) >= 2:
             # find the pair with the lowest merge index
             stats = get_stats(ids)
+            # 在字典stats中找到一个键，使得它在self.merges字典中对应的值最小
             pair = min(stats, key=lambda p: self.merges.get(p, float("inf")))
             # subtle: if there are no more merges available, the key will
             # result in an inf for every single pair, and the min will be
