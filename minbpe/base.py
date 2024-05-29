@@ -43,6 +43,12 @@ def merge(ids, pair, idx):
     return newids
 
 # first two helper functions...
+# 替换掉字符串中的控制字符为Unicode转义序列
+
+# Unicode转义序列是一种表示Unicode字符的方法，特别是那些无法直接在文本中表示的字符。它们以\u开头，后面跟着四个十六进制数字，这四个数字表示字符的Unicode代码点。
+# 例如，'\u000a'是换行符的Unicode转义序列。这里的000a是换行符的Unicode代码点，它在十六进制中表示的数字是10，在ASCII和Unicode中，这个数字对应的字符就是换行符。
+# 在Python中，你可以在字符串中直接使用Unicode转义序列来表示对应的字符。例如，print("\u000a")会打印一个换行符。
+# 字母"a"的Unicode转义序列是'\u0061'。这里的0061是字母"a"的Unicode代码点，它在十六进制中表示的数字是97，这个数字对应的ASCII和Unicode字符就是小写字母"a"。
 def replace_control_characters(s: str) -> str:
     # we don't want to print control characters
     # which distort the output (e.g. \n or much worse)
@@ -50,14 +56,17 @@ def replace_control_characters(s: str) -> str:
     # http://www.unicode.org/reports/tr44/#GC_Values_Table
     chars = []
     for ch in s:
+        # 如果字符的类别不是"C"（即不是控制字符）
         if unicodedata.category(ch)[0] != "C":
             chars.append(ch) # this character is ok
+        # 它将字符转换为其Unicode转义序列（例如，\u000a是换行符的Unicode转义序列），然后将这个序列添加到chars列表中。
         else:
             chars.append(f"\\u{ord(ch):04x}") # escape
     return "".join(chars)
 
 def render_token(t: bytes) -> str:
     # pretty print a token, escaping control characters
+    # replace: 无法解码的字节将被替换为Python的官方替换字符（U+FFFD，通常显示为一个问号或者一个空白框）
     s = t.decode('utf-8', errors='replace')
     s = replace_control_characters(s)
     return s
@@ -93,6 +102,7 @@ class Tokenizer:
         for (p0, p1), idx in self.merges.items():
             vocab[idx] = vocab[p0] + vocab[p1]
         for special, idx in self.special_tokens.items():
+            # encode 用于将字符串编码为字节流
             vocab[idx] = special.encode("utf-8")
         return vocab
 
@@ -145,6 +155,7 @@ class Tokenizer:
         # read the model file
         merges = {}
         special_tokens = {}
+        # 这里设置了初始idx，因为初始词表为ASCII表中的256个字符
         idx = 256
         with open(model_file, 'r', encoding="utf-8") as f:
             # read the version

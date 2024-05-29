@@ -11,6 +11,9 @@ There are two Tokenizers in this repository, both of which can perform the 3 pri
 3. [minbpe/regex.py](minbpe/regex.py): Implements the `RegexTokenizer` that further splits the input text by a regex pattern, which is a preprocessing stage that splits up the input text by categories (think: letters, numbers, punctuation) before tokenization. This ensures that no merges will happen across category boundaries. This was introduced in the GPT-2 paper and continues to be in use as of GPT-4. This class also handles special tokens, if any.
 4. [minbpe/gpt4.py](minbpe/gpt4.py): Implements the `GPT4Tokenizer`. This class is a light wrapper around the `RegexTokenizer` (2, above) that exactly reproduces the tokenization of GPT-4 in the [tiktoken](https://github.com/openai/tiktoken) library. The wrapping handles some details around recovering the exact merges in the tokenizer, and the handling of some unfortunate (and likely historical?) 1-byte token permutations.
 
+> 3. [minbpe/regex.py](minbpe/regex.py): 实现了`RegexTokenizer`，它通过正则表达式进一步分割输入文本，这是一个预处理阶段，它在分词之前按类别（比如：字母、数字、标点符号）分割输入文本。这确保了在类别边界上不会发生合并。这在GPT-2论文中被引入，并且在GPT-4中仍然在使用。这个类也处理特殊的令牌（如果有的话）。
+举个例子，假设我们有一段输入文本："Hello, world! 123"。在这个预处理阶段，RegexTokenizer可能会将这段文本分割成以下几部分：['Hello', ',', ' world', '!', ' ', '123']。这样做的目的是为了确保在后续的分词过程中，不同类别的元素（如字母和数字，字母和标点符号等）不会被合并在一起。这种处理方式可以帮助我们更好地理解和处理文本数据，因为它能够保留文本中的一些重要信息，比如单词的边界、数字和字母的区别等。
+
 Finally, the script [train.py](train.py) trains the two major tokenizers on the input text [tests/taylorswift.txt](tests/taylorswift.txt) (this is the Wikipedia entry for her kek) and saves the vocab to disk for visualization. This script runs in about 25 seconds on my (M1) MacBook.
 
 All of the files above are very short and thoroughly commented, and also contain a usage example on the bottom of the file.
@@ -33,6 +36,8 @@ tokenizer.save("toy")
 ```
 
 According to Wikipedia, running bpe on the input string: "aaabdaaabac" for 3 merges results in the string: "XdXac" where  X=ZY, Y=ab, and Z=aa. The tricky thing to note is that minbpe always allocates the 256 individual bytes as tokens, and then merges bytes as needed from there. So for us a=97, b=98, c=99, d=100 (their [ASCII](https://www.asciitable.com) values). Then when (a,a) is merged to Z, Z will become 256. Likewise Y will become 257 and X 258. So we start with the 256 bytes, and do 3 merges to get to the result above, with the expected output of [258, 100, 258, 97, 99].
+
+> 这里第一次merge之后，变成了 ZabdZabac，此时 Za、ab都是出现了2次，这里代码第二次merge 选用了 Za，当然也可以选用 ab，对于本例来说，不管怎么选，最终结果都相同。但是，这个合并的顺序对最终的结果是影响的，可以使用 ababa 来推演一下。
 
 ## inference: GPT-4 comparison
 

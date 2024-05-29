@@ -7,21 +7,29 @@ loads the pretrained tokenizer from the `cl100k_base` tokenizer of tiktoken.
 import tiktoken
 from .regex import RegexTokenizer
 
-
+# 给定一个词和一个字节对合并规则，按照规则将词切分为多个子词。
 def bpe(mergeable_ranks, token, max_rank):
     # helper function used in get_gpt4_merges() to reconstruct the merge forest
+    # mergeable_ranks：一个字典，键是可以合并的字节对，值是合并的优先级（或称为排名）。排名越小，优先级越高。
+    # token：一个字节串，表示需要进行BPE的词。
+    # max_rank：一个整数，表示最大的合并优先级。只有排名小于max_rank的字节对才会被合并。
+
+    # 将输入的字节串token切分为单个字节的列表parts
     parts = [bytes([b]) for b in token]
     while True:
         min_idx = None
         min_rank = None
+        # 遍历parts中的所有相邻字节对
         for i, pair in enumerate(zip(parts[:-1], parts[1:])):
             rank = mergeable_ranks.get(pair[0] + pair[1])
             if rank is not None and (min_rank is None or rank < min_rank):
                 min_idx = i
                 min_rank = rank
+        # 如果没有找到可以合并的字节对，或者找到的字节对的排名大于等于max_rank，就跳出循环
         if min_rank is None or (max_rank is not None and min_rank >= max_rank):
             break
         assert min_idx is not None
+        # 查找可以合并且排名最小的字节对。如果找到了这样的字节对，就将它们合并为一个新的字节（[parts[min_idx] + parts[min_idx + 1]]），并更新parts
         parts = parts[:min_idx] + [parts[min_idx] + parts[min_idx + 1]] + parts[min_idx + 2:]
     return parts
 
@@ -34,9 +42,12 @@ def recover_merges(mergeable_ranks):
     # also see https://github.com/karpathy/minbpe/issues/11#issuecomment-1950805306
     merges = {}
     for token, rank in mergeable_ranks.items():
+        # 跳过前256个，ascii表的
         if len(token) == 1:
             continue # skip raw bytes
+        # 利用bpe算法从中恢复出pair对
         pair = tuple(bpe(mergeable_ranks, token, max_rank=rank))
+        # 检测 len(pair) 是否等于2，因为若 len(token) > 2，则一定是由两个低rank的 token合并而来的
         assert len(pair) == 2
         # recover the integer ranks of the pair
         ix0 = mergeable_ranks[pair[0]]
@@ -61,6 +72,7 @@ class GPT4Tokenizer(RegexTokenizer):
         super().__init__(pattern=GPT4_SPLIT_PATTERN)
         # get the official tokenizer and its merges
         enc = tiktoken.get_encoding("cl100k_base")
+        # [bytestr: int, bytestr: int, ...]
         mergeable_ranks = enc._mergeable_ranks
         # the merges are those of gpt4, but we have to recover them
         self.merges = recover_merges(mergeable_ranks)
@@ -73,13 +85,17 @@ class GPT4Tokenizer(RegexTokenizer):
         # for some reason, the tokens corresponding to individual bytes
         # are permuted in a different order. This is completely non-sensical
         # and probably historical, but therefore we have to deal with it here.
+        # gpt的前256个token并不是按照ascii表来的，所以这里找到映射关系
+        # our-> gpt
         self.byte_shuffle = {i: mergeable_ranks[bytes([i])] for i in range(256)}
+        # gpt-> our
         self.inverse_byte_shuffle = {v: k for k, v in self.byte_shuffle.items()}
         # finally register the special tokens
         self.register_special_tokens(GPT4_SPECIAL_TOKENS)
 
     def _encode_chunk(self, text_bytes):
         # before we start processing bytes, we have to permute them
+        # 在处理之前，对于前256个，从our转为gpt
         text_bytes = bytes(self.byte_shuffle[b] for b in text_bytes)
         ids = super()._encode_chunk(text_bytes)
         return ids
@@ -87,6 +103,7 @@ class GPT4Tokenizer(RegexTokenizer):
     def decode(self, ids):
         # we have to un-permute the bytes before we decode
         text_bytes = b"".join(self.vocab[idx] for idx in ids)
+        # 在处理之前，对于前256个，从gpt转为our
         text_bytes = bytes(self.inverse_byte_shuffle[b] for b in text_bytes)
         text = text_bytes.decode("utf-8", errors="replace")
         return text

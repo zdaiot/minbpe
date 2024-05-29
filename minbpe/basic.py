@@ -33,6 +33,7 @@ class BasicTokenizer(Tokenizer):
             # count up the number of times every consecutive pair appears
             stats = get_stats(ids)
             # find the pair with the highest count
+            # 若有多个pair同时最高，这里选取了第一个出现的pair。这里的选取顺序会影响最终结果
             pair = max(stats, key=stats.get)
             # mint a new token: assign it the next available id
             idx = 256 + i
@@ -63,7 +64,7 @@ class BasicTokenizer(Tokenizer):
         while len(ids) >= 2:
             # find the pair with the lowest merge index
             stats = get_stats(ids)
-            # 在字典stats中找到一个键，使得它在self.merges字典中对应的值最小
+            # 在字典stats中找到一个键，使得它在self.merges字典中对应的值最小,，也就是该键在词表中出现的概率最高
             pair = min(stats, key=lambda p: self.merges.get(p, float("inf")))
             # subtle: if there are no more merges available, the key will
             # result in an inf for every single pair, and the min will be
